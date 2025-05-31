@@ -1,1 +1,1 @@
-WSGI Server for Flask
+HTTP server that is specifically designed to run Python web applications using the WSGI (Web Server Gateway Interface) standard.
