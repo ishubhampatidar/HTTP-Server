@@ -4,6 +4,7 @@ import traceback
 from io import BytesIO
 from wsgiref.headers import Headers
 from urllib.parse import urlparse
+from threading import Thread
 
 class WSGIServer:
     def __init__(self, host='127.0.0.1', port=8000, app=None):
@@ -21,7 +22,8 @@ class WSGIServer:
 
             while True:
                 client_conn, client_add = socket_server.accept()
-                self.handle_request(client_conn)
+                thread = Thread(target=self.handle_request, args=(client_conn,))
+                thread.start()
     
     def http_response(self, status, response_headers, exc_info=None):
         headers = Headers(response_headers)
@@ -80,7 +82,7 @@ class WSGIServer:
                 'wsgi.version': (1, 0),
                 'wsgi.input': body_stream,
                 'wsgi.errors': sys.stderr,
-                'wsgi.multithread': False,
+                'wsgi.multithread': True,
                 'wsgi.multiprocess': False,
                 'wsgi.run_once': False,
                 'wsgi.url_scheme': 'http',
@@ -105,8 +107,7 @@ class WSGIServer:
             client_conn.sendall(response.encode('utf-8'))
 
         except Exception as e:
-            error_message = traceback.format_exc()
-            # print("Internal Server Error:\n", error_message)
+            traceback.format_exc()
             client_conn.sendall(b"HTTP/1.1 500 Internal Serve Error\r\nContent-Type: text\plain\r\n\r\nInternal Server Error")
         
         finally:
