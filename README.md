@@ -27,7 +27,7 @@ A lightweight, WSGI-compliant web server built from scratch using raw Python soc
 ---
 
 ## 📁 Project Structure
-
+.
 ├── static/ # Static files (e.g., CSS, JS, images)
 │ └── hello.txt
 ├── templates/ # HTML templates
