@@ -26,17 +26,6 @@ A lightweight, WSGI-compliant web server built from scratch using raw Python soc
 
 ---
 
-## 📁 Project Structure
-.
-├── static/ # Static files (e.g., CSS, JS, images)
-│ └── hello.txt
-├── templates/ # HTML templates
-│ └── 404.html
-├── flask_app.py # Sample WSGI app (Flask)
-├── main.py # Runner script to mount app on server
-├── server.py # Core WSGI server implementation
-└── README.md
-
 
 🧠 How It Works
 - The server listens on a raw TCP socket using Python's socket module.
