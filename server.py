@@ -4,6 +4,7 @@ import os
 import mimetypes
 import traceback
 from io import BytesIO
+from datetime import datetime
 from wsgiref.headers import Headers
 from urllib.parse import urlparse
 from threading import Thread
@@ -26,7 +27,7 @@ class WSGIServer:
 
             while True:
                 client_conn, client_add = socket_server.accept()
-                thread = Thread(target=self.handle_request, args=(client_conn,))
+                thread = Thread(target=self.handle_request, args=(client_conn, client_add))
                 thread.start()
     
     def http_response(self, status, response_headers, exc_info=None):
@@ -56,6 +57,8 @@ class WSGIServer:
             content_type = mimetypes.guess_type(file_path)[0] or 'application\octet-stream'
             headers = f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Lenght: {len(content)}\r\n\r\n"
             client_conn.sendall(headers.encode('utf-8') + content)
+
+            self.log_request(client_conn.getpeername()[0], 'GET', path, 200)
         except Exception as e:
             traceback.print_exc()
             self.send_500(client_conn)
@@ -73,6 +76,8 @@ class WSGIServer:
             )
 
             client_conn.sendall(headers.encode('utf-8') + content)
+
+            self.log_request(client_conn.getpeername()[0], 'GET', 'unknown', 404)
         except Exception as e:
             traceback.print_exc()
             client_conn.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404 Not Found")
@@ -80,7 +85,11 @@ class WSGIServer:
     def send_500(self, client_conn):
         client_conn.sendall(b"HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nInternal Server Error")
 
-    def handle_request(self, client_conn):
+    def log_request(self, client_add, method, path, status_code):
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"[{timestamp}] {client_add} \"{method} {path}\" {status_code}")
+
+    def handle_request(self, client_conn, client_add):
         try:
             request_data = b""
             while True:
@@ -155,6 +164,8 @@ class WSGIServer:
             )
             
             client_conn.sendall(response.encode('utf-8'))
+
+            self.log_request(client_add[0], method, path, status_code)
 
         except Exception as e:
             traceback.format_exc()
