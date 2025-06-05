@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    return 'Hello from Flaskon custom WSGI server!'
+    return 'Hello from Flask on custom WSGI server!'
 
 @app.route('/greet/<name>')
 def greet(name):

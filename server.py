@@ -1,5 +1,7 @@
 import socket
 import sys
+import os
+import mimetypes
 import traceback
 from io import BytesIO
 from wsgiref.headers import Headers
@@ -7,11 +9,13 @@ from urllib.parse import urlparse
 from threading import Thread
 
 class WSGIServer:
-    def __init__(self, host='127.0.0.1', port=8000, app=None):
+    def __init__(self, host='127.0.0.1', port=8000, app=None, static_dir='static', template_dir='templates'):
         self.host = host
         self.port = port
         self.app = app
         self.result = []
+        self.static_dir = static_dir
+        self.template_dir = template_dir
 
     def start_server(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as socket_server:
@@ -39,7 +43,43 @@ class WSGIServer:
                 headers[key] = value
         return headers
 
+    def serve_static_file(self, client_conn, path):
+        try:
+            file_path = os.path.join(self.static_dir, path[len('/static/'):])
+            if not os.path.exists(file_path) or not os.path.isfile(file_path):
+                self.send_404(client_conn)
+                return
+            
+            with open(file_path, 'rb') as static_file:
+                content  = static_file.read()
+
+            content_type = mimetypes.guess_type(file_path)[0] or 'application\octet-stream'
+            headers = f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Lenght: {len(content)}\r\n\r\n"
+            client_conn.sendall(headers.encode('utf-8') + content)
+        except Exception as e:
+            traceback.print_exc()
+            self.send_500(client_conn)
     
+    def send_404(self, client_conn):
+        try:
+            file_path = os.path.join(self.template_dir, '404.html')
+            with open(file_path, 'rb') as f:
+                content = f.read()
+            
+            headers = (
+                "HTTP/1.1 404 Not Found\r\n"
+                "Content-Type: text/html\r\n"
+                f"Content-Length: {len(content)}\r\n\r\n"
+            )
+
+            client_conn.sendall(headers.encode('utf-8') + content)
+        except Exception as e:
+            traceback.print_exc()
+            client_conn.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\n404 Not Found")
+
+    def send_500(self, client_conn):
+        client_conn.sendall(b"HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\n\r\nInternal Server Error")
+
     def handle_request(self, client_conn):
         try:
             request_data = b""
@@ -65,6 +105,11 @@ class WSGIServer:
             parsed_url = urlparse(full_path)
             path = parsed_url.path
             query_string = parsed_url.query
+
+            # Serve the static file
+            if path.startswith('/static'):
+                self.serve_static_file(client_conn, path)
+                return
 
             content_length = int(headers.get('content-length', 0))
             body_bytes = request_data.split(b'\r\n\r\n', 1)[1] if content_length else b""
@@ -95,6 +140,11 @@ class WSGIServer:
          
             response_body = self.app(environ, self.http_response)
             status, headers = self.result
+
+            status_code = int(status.split()[0])
+            if status_code == 404:
+                self.send_404(client_conn)
+                return
 
             #construct full HTTP response
             response_headers = ''.join(f"{k}: {v}\r\n" for k, v in headers.items())
